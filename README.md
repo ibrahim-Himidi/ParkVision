@@ -10,6 +10,7 @@
     YOLOv8 ve EasyOCR tabanlı, Türk plakalarına özel akıllı otopark yönetim sistemi
     <br />
     <br />
+  </p>
 </div>
 
 <!-- TABLE OF CONTENTS -->
@@ -166,11 +167,8 @@ ParkVision/
 │   └── index.html          # Tek sayfalık web arayüzü (Tailwind CSS + Vanilla JS)
 ├── data/
 │   └── parking_data.json   # Anlık park durumu (plaka → giriş zamanı)
-├── weights/
-│   ├── plate_model.pt      # YOLOv8 — plaka tespiti modeli
-│   └── char_model.pt       # YOLOv8 — karakter tanıma modeli
-├── ARAC GIRISI.png         # Ekran görüntüsü — giriş işlemi
-├── CIKIS.png               # Ekran görüntüsü — çıkış işlemi
+├── assets/                 # Görsel materyaller (Logo ve Ekran Görüntüleri)
+├── weights/                # YOLOv8 modelleri
 └── .gitignore
 ```
 
@@ -191,8 +189,8 @@ ParkVision/
 ---
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[screenshot-entry]: ARAC%20GIRISI.png
-[screenshot-exit]: CIKIS.png
+[screenshot-entry]: assets/ARAC%20GIRISI.png
+[screenshot-exit]: assets/CIKIS.png
 
 [Flask-shield]: https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white
 [Python-shield]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white
