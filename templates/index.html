@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Otopark Sistemi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+
+    <!-- Modal -->
+    <div id="infoModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center"
+        onclick="closeModal()">
+        <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-start">
+                <h2 id="modalTitle" class="text-2xl font-bold text-gray-800">Araç Bilgisi</h2>
+                <button id="closeModalBtn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            </div>
+            <div id="modalBody" class="mt-4 text-lg text-gray-700">
+                <!-- İçerik JavaScript ile doldurulacak -->
+            </div>
+        </div>
+    </div>
+
+    <header class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center">
+                <i class="fas fa-car text-3xl text-blue-600 mr-3"></i>
+                <h1 class="text-2xl font-bold text-gray-900">Otopark Yönetim Sistemi</h1>
+            </div>
+            <div class="text-sm bg-green-100 px-4 py-2 rounded-full text-green-700 font-medium">
+                Doluluk: <span id="currentCount">0</span>/30
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <i class="fas fa-video mr-2 text-blue-600"></i> Plaka Tanıma
+            </h2>
+
+            <div class="flex gap-4 mb-4">
+                <button id="liveModeBtn"
+                    class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-camera mr-2"></i> Canlı Kamera
+                </button>
+
+                <button id="photoModeBtn"
+                    class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-image mr-2"></i> Fotoğraf Yükle
+                </button>
+            </div>
+
+            <video id="video" class="w-full rounded-lg shadow-inner hidden" autoplay muted playsinline></video>
+            <canvas id="canvas" class="w-full rounded-lg shadow-inner hidden"></canvas>
+            <img id="photoPreview" class="w-full rounded-lg shadow-inner hidden" alt="Yüklenen Fotoğraf" />
+
+            <div id="uploadSection" class="mt-4 hidden">
+                <label for="fileUpload"
+                    class="cursor-pointer bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 inline-block transition-colors">
+                    <i class="fas fa-upload mr-2"></i> Fotoğraf Seç
+                </label>
+                <input id="fileUpload" type="file" accept="image/*" class="hidden" />
+            </div>
+
+            <div id="resultCard" class="mt-6 p-4 bg-gray-50 rounded-lg hidden"></div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h2 class="text-xl font-semibold mb-4 flex items-center">
+                <i class="fas fa-parking mr-2 text-green-600"></i> Otoparktaki Araçlar
+            </h2>
+            <div id="vehiclesList" class="space-y-2 max-h-[60vh] overflow-y-auto text-gray-800 text-sm">
+                <div class="text-gray-500 text-center py-4">Yükleniyor...</div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+
+            const BACKEND = "http://localhost:5000";
+            const MAX_CAPACITY = 30;
+            const SEND_INTERVAL = 700;
+
+            // DOM Elementleri
+            const video = document.getElementById("video");
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            const resultCard = document.getElementById("resultCard");
+            const photoPreview = document.getElementById("photoPreview");
+            const uploadSection = document.getElementById("uploadSection");
+            const fileUpload = document.getElementById("fileUpload");
+            const currentCount = document.getElementById("currentCount");
+            const vehiclesList = document.getElementById("vehiclesList");
+            const liveModeBtn = document.getElementById("liveModeBtn");
+            const photoModeBtn = document.getElementById("photoModeBtn");
+
+            // Modal elementleri
+            const infoModal = document.getElementById("infoModal");
+            const modalTitle = document.getElementById("modalTitle");
+            const modalBody = document.getElementById("modalBody");
+            const closeModalBtn = document.getElementById("closeModalBtn");
+
+            // Durum Değişkenleri
+            let isLiveMode = false;
+            let isModalOpen = false;
+            let parked = {};
+            let lastSend = 0;
+
+            // ================================
+            // VERİ ÇEKME (PERSISTENCE)
+            // ================================
+            async function fetchParkedVehicles() {
+                try {
+                    // Cache önlemek için timestamp ekle
+                    const res = await fetch(`${BACKEND}/api/parked?t=${Date.now()}`);
+                    if (!res.ok) throw new Error("Veri çekilemedi");
+
+                    const data = await res.json();
+                    // Backend'den gelen veri: { "34ABC123": "2023-11-27T10:00:00" }
+                    // Frontend formatına çevir: { "34ABC123": { time: "..." } }
+                    parked = {};
+                    for (const [plate, time] of Object.entries(data)) {
+                        parked[plate] = { time: time };
+                    }
+                    renderParked();
+                } catch (err) {
+                    console.error("Araç listesi güncellenemedi:", err);
+                }
+            }
+
+            // Periyodik olarak listeyi güncelle (2 saniyede bir)
+            setInterval(fetchParkedVehicles, 2000);
+
+            // ================================
+            // MODAL FONKSİYONLARI
+            // ================================
+            function showModal(title, content) {
+                isModalOpen = true;
+                modalTitle.innerText = title;
+                modalBody.innerHTML = content;
+                infoModal.classList.remove('hidden');
+                infoModal.classList.add('flex');
+            }
+
+            window.closeModal = function () {
+                isModalOpen = false;
+                infoModal.classList.add('hidden');
+                infoModal.classList.remove('flex');
+
+                // Modal kapandıktan sonra canlı kamera modundaysa döngüyü yeniden başlat
+                if (isLiveMode) {
+                    requestAnimationFrame(liveDetectionLoop);
+                }
+            }
+
+            closeModalBtn.addEventListener("click", window.closeModal);
+
+            // ================================
+            // MOD BUTONLARI
+            // ================================
+            liveModeBtn.addEventListener("click", () => {
+                isLiveMode = true;
+
+                // Kamera öğelerini göster
+                video.classList.remove("hidden");
+                canvas.classList.remove("hidden");
+
+                // Fotoğraf öğelerini gizle
+                photoPreview.classList.add("hidden");
+                uploadSection.classList.add("hidden");
+                resultCard.classList.add("hidden");
+
+                // Fotoğraf önizlemesini temizle
+                photoPreview.src = '';
+                fileUpload.value = '';
+
+                // Kamerayı başlat
+                startCamera();
+                requestAnimationFrame(liveDetectionLoop);
+            });
+
+            photoModeBtn.addEventListener("click", () => {
+                isLiveMode = false;
+
+                // Kamera durdur
+                if (video.srcObject) {
+                    video.srcObject.getTracks().forEach(track => track.stop());
+                }
+
+                // Kamera öğelerini gizle
+                video.classList.add("hidden");
+                canvas.classList.add("hidden");
+
+                // Fotoğraf öğelerini göster
+                photoPreview.classList.remove("hidden");
+                uploadSection.classList.remove("hidden");
+                resultCard.classList.add("hidden");
+
+                // Önizleme temizle
+                photoPreview.src = '';
+                fileUpload.value = '';
+            });
+
+            // ================================
+            // KAMERA BAŞLAT
+            // ================================
+            function startCamera() {
+                navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                })
+                    .then(stream => {
+                        video.srcObject = stream;
+                    })
+                    .catch(err => {
+                        console.error("Kamera hatası:", err);
+                        alert("Kamera açılamadı: " + err.message);
+                    });
+            }
+
+            // ================================
+            // CANLI MOD DÖNGÜSÜ
+            // ================================
+            async function liveDetectionLoop() {
+                // Modal açıksa veya canlı mod kapalıysa döngüyü durdur
+                if (!isLiveMode || isModalOpen) {
+                    return;
+                }
+
+                // Video henüz hazır değilse bekle
+                if (video.videoWidth === 0) {
+                    requestAnimationFrame(liveDetectionLoop);
+                    return;
+                }
+
+                // Throttle: Çok sık istek gönderme
+                const now = Date.now();
+                if (now - lastSend < SEND_INTERVAL) {
+                    requestAnimationFrame(liveDetectionLoop);
+                    return;
+                }
+                lastSend = now;
+
+                // Canvas'a çiz ve base64'e çevir
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imgData = canvas.toDataURL("image/jpeg", 0.8);
+
+                try {
+                    const res = await fetch(`${BACKEND}/camera`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ image: imgData })
+                    });
+
+                    if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}`);
+                    }
+
+                    const data = await res.json();
+
+                    if (data.status === "ok" && data.plate) {
+                        // Backend'den gelen veriyi kullan
+                        handleDetectionResult(data, 'camera');
+                    }
+                } catch (err) {
+                    console.error("Canlı mod hata:", err);
+                }
+
+                // Döngüyü devam ettir
+                requestAnimationFrame(liveDetectionLoop);
+            }
+
+            // ================================
+            // FOTOĞRAF YÜKLEME
+            // ================================
+            fileUpload.addEventListener("change", (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const imgData = ev.target.result;
+                    photoPreview.src = imgData;
+
+                    resultCard.innerHTML = `
+                <div class="flex items-center justify-center">
+                    <i class="fas fa-spinner fa-spin mr-2 text-blue-600"></i> 
+                    <span class="text-gray-700">Plaka tespit ediliyor...</span>
+                </div>
+            `;
+                    resultCard.classList.remove("hidden");
+
+                    processPhoto(imgData);
+                };
+                reader.readAsDataURL(file);
+            });
+
+            async function processPhoto(base64Image) {
+                try {
+                    const res = await fetch(`${BACKEND}/upload`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ image: base64Image })
+                    });
+
+                    if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}`);
+                    }
+
+                    const data = await res.json();
+                    resultCard.classList.add("hidden");
+
+                    if (data.status !== "ok" || !data.detections || data.detections.length === 0) {
+                        showModal("Hata", `
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-triangle text-yellow-500 text-4xl mb-3"></i>
+                        <p>Plaka okunamadı. Lütfen daha net bir fotoğraf deneyin.</p>
+                    </div>
+                `);
+                        setTimeout(clearPhotoUpload, 100);
+                        return;
+                    }
+
+                    const det = data.detections[0];
+                    handleDetectionResult(det, 'photo', det.annotated_image);
+
+                    // Modal kapandıktan sonra temizlik yapılacak
+                    setTimeout(clearPhotoUpload, 100);
+
+                } catch (err) {
+                    console.error("Fotoğraf işleme hatası:", err);
+                    resultCard.classList.add("hidden");
+                    showModal("Hata", `
+                <div class="text-center">
+                    <i class="fas fa-times-circle text-red-500 text-4xl mb-3"></i>
+                    <p>Sunucuya bağlanırken bir hata oluştu.</p>
+                    <p class="text-sm text-gray-500 mt-2">${err.message}</p>
+                </div>
+            `);
+                    setTimeout(clearPhotoUpload, 100);
+                }
+            }
+
+            function clearPhotoUpload() {
+                // Modal kapatıldığında fotoğrafı temizle
+                if (!isModalOpen) {
+                    photoPreview.src = '';
+                    photoPreview.classList.add('hidden');
+                    fileUpload.value = '';
+                } else {
+                    // Modal hala açıksa tekrar kontrol et
+                    setTimeout(clearPhotoUpload, 100);
+                }
+            }
+
+            // ================================
+            // GİRİŞ / ÇIKIŞ SİSTEMİ (AKILLI)
+            // ================================
+            function handleDetectionResult(data, mode, annotatedImage = null) {
+                const plate = data.plate;
+                const event = data.event;
+                const entryTimeStr = data.entry_time; // Çıkış yaparken backend'den gelir
+
+                if (!plate) return;
+
+                const now = new Date();
+                const plateUpper = plate.toUpperCase();
+
+                // ÇIKIŞ
+                if (event === 'exit') {
+                    // Backend'den gelen giriş saatini kullan, yoksa hata
+                    if (!entryTimeStr) {
+                        console.error("Çıkış yapıldı ama giriş saati bulunamadı!");
+                        return;
+                    }
+
+                    const entry = new Date(entryTimeStr);
+                    const mins = Math.ceil((now - entry) / 60000);
+                    const fee = calculateFee(mins);
+
+                    const content = `
+                <div class="space-y-3">
+                    <div class="bg-red-50 p-3 rounded-lg">
+                        <p class="text-sm text-gray-600">Plaka</p>
+                        <p class="text-xl font-bold text-gray-800">${plateUpper}</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <p class="text-xs text-gray-600">Giriş Saati</p>
+                            <p class="font-semibold text-gray-800">${entry.toLocaleTimeString('tr-TR')}</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <p class="text-xs text-gray-600">Çıkış Saati</p>
+                            <p class="font-semibold text-gray-800">${now.toLocaleTimeString('tr-TR')}</p>
+                        </div>
+                    </div>
+                    <div class="bg-blue-50 p-3 rounded-lg">
+                        <p class="text-xs text-gray-600">Kalış Süresi</p>
+                        <p class="font-semibold text-gray-800">${formatDuration(mins)}</p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg border-2 border-green-200">
+                        <p class="text-sm text-gray-600">Toplam Ücret</p>
+                        <p class="text-3xl font-bold text-green-600">${fee} ₺</p>
+                    </div>
+                    ${annotatedImage ? `<img src="${annotatedImage}" class="mt-4 rounded-lg w-full border-2 border-gray-200">` : ''}
+                </div>
+            `;
+                    showModal("Araç Çıkışı", content);
+
+                    // Listeyi hemen güncelle
+                    fetchParkedVehicles();
+                }
+                // GİRİŞ
+                else if (event === 'entry') {
+                    // Kapasite kontrolü (Frontend'de sadece uyarı amaçlı, backend zaten kaydetti)
+                    if (Object.keys(parked).length >= MAX_CAPACITY) {
+                        // Backend kaydetti ama biz dolu uyarısı veriyoruz? 
+                        // Aslında backend'de kapasite kontrolü yapmak daha doğru olurdu ama
+                        // şimdilik basit tutuyoruz.
+                    }
+
+                    const content = `
+                <div class="space-y-3">
+                    <div class="bg-green-50 p-3 rounded-lg">
+                        <p class="text-sm text-gray-600">Plaka</p>
+                        <p class="text-xl font-bold text-gray-800">${plateUpper}</p>
+                    </div>
+                    <div class="bg-blue-50 p-3 rounded-lg">
+                        <p class="text-sm text-gray-600">Giriş Saati</p>
+                        <p class="text-lg font-semibold text-gray-800">${now.toLocaleTimeString('tr-TR')}</p>
+                    </div>
+                    <div class="text-center py-2">
+                        <i class="fas fa-check-circle text-green-500 text-3xl"></i>
+                        <p class="text-green-600 font-semibold mt-2">Otoparka giriş yapıldı</p>
+                    </div>
+                    ${annotatedImage ? `<img src="${annotatedImage}" class="mt-4 rounded-lg w-full border-2 border-gray-200">` : ''}
+                </div>
+            `;
+                    showModal("Araç Girişi", content);
+
+                    // Listeyi hemen güncelle
+                    fetchParkedVehicles();
+                }
+            }
+
+            // ================================
+            // ARAÇ LİSTESİNİ GÖRÜNTÜLE
+            // ================================
+            function renderParked() {
+                vehiclesList.innerHTML = "";
+
+                const plates = Object.entries(parked);
+                currentCount.textContent = plates.length;
+
+                if (plates.length === 0) {
+                    vehiclesList.innerHTML = `
+                <div class="text-gray-500 text-center py-8">
+                    <i class="fas fa-inbox text-4xl mb-2 opacity-50"></i>
+                    <p>Henüz araç yok.</p>
+                </div>
+            `;
+                    return;
+                }
+
+                // En yeniden eskiye sırala
+                plates.sort((a, b) => new Date(b[1].time) - new Date(a[1].time));
+
+                plates.forEach(([plate, data]) => {
+                    const entryTime = new Date(data.time);
+                    const minsInside = Math.ceil((Date.now() - entryTime) / 60000);
+
+                    vehiclesList.innerHTML += `
+                <div class="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-l-4 border-blue-500 hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-center">
+                        <span class="font-mono text-base font-bold text-gray-800">${plate}</span>
+                        <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">${formatDuration(minsInside)}</span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-clock mr-1"></i>
+                        ${entryTime.toLocaleTimeString('tr-TR')}
+                    </div>
+                </div>
+            `;
+                });
+            }
+
+            // ================================
+            // YARDIMCI FONKSİYONLAR
+            // ================================
+            function formatDuration(totalMinutes) {
+                if (totalMinutes < 60) {
+                    return `${totalMinutes} dk`;
+                }
+                
+                const days = Math.floor(totalMinutes / (24 * 60));
+                const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+                const mins = totalMinutes % 60;
+
+                if (days > 0) {
+                    return `${days} gün ${hours} sa`;
+                }
+                return `${hours} sa ${mins} dk`;
+            }
+
+            // ================================
+            // ÜCRET HESAPLAMA
+            // ================================
+            function calculateFee(minutes) {
+                if (minutes <= 15) return 0;
+                if (minutes <= 60) return 50;
+                if (minutes <= 180) return 100;
+                if (minutes <= 360) return 200;
+                if (minutes <= 540) return 400;
+                if (minutes <= 720) return 750;
+                return 1000;
+            }
+
+            // Sayfa yüklendiğinde verileri çek
+            fetchParkedVehicles();
+
+        });
+    </script>
+
+</body>
+
+</html>

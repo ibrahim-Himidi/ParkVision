@@ -1,0 +1,7 @@
+Flask
+Flask-Cors
+opencv-python
+easyocr
+numpy
+Pillow
+ultralytics
