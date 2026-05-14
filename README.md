@@ -1,11 +1,10 @@
 <a id="readme-top"></a>
 
-
-
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-<h3 align="center">Otopark Plaka Tanıma Sistemi</h3>
+
+<h3 align="center">ParkVision — Akıllı Otopark Plaka Tanıma Sistemi</h3>
 
   <p align="center">
     YOLOv8 ve EasyOCR tabanlı, Türk plakalarına özel akıllı otopark yönetim sistemi
@@ -42,7 +41,6 @@
     <li><a href="#ücret-tarifesi">Ücret Tarifesi</a></li>
     <li><a href="#proje-yapısı">Proje Yapısı</a></li>
     <li><a href="#api-endpointleri">API Endpointleri</a></li>
-    <li><a href="#katkıda-bulunma">Katkıda Bulunma</a></li>
   </ol>
 </details>
 
@@ -89,8 +87,8 @@ Canlı kamera modunda, plaka perspektif bozukluklarını düzeltmek için **pers
 
 1.  Depoyu klonlayın
     ```sh
-    git clone https://github.com/ibrahim/parking-system.git
-    cd parking-system
+    git clone https://github.com/ibrahim-Himidi/ParkVision.git
+    cd ParkVision
     ```
 
 2.  Sanal ortam oluşturun ve aktif edin
@@ -114,7 +112,6 @@ Canlı kamera modunda, plaka perspektif bozukluklarını düzeltmek için **pers
     ```
     http://localhost:5000
     ```
-
 
 <p align="right">(<a href="#readme-top">yukarı git</a>)</p>
 
@@ -162,7 +159,7 @@ Sağ panelde **"Otoparktaki Araçlar"** listesi 2 saniyede bir otomatik güncell
 ## Proje Yapısı
 
 ```
-parking-system/
+ParkVision/
 ├── app.py                  # Flask backend — model yükleme, plaka tanıma, API
 ├── requirements.txt        # Python bağımlılıkları
 ├── templates/
@@ -191,30 +188,15 @@ parking-system/
 
 <p align="right">(<a href="#readme-top">yukarı git</a>)</p>
 
-
 ---
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[contributors-shield]: https://img.shields.io/github/contributors/ibrahim/parking-system.svg?style=for-the-badge
-[contributors-url]: https://github.com/ibrahim/parking-system/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/ibrahim/parking-system.svg?style=for-the-badge
-[forks-url]: https://github.com/ibrahim/parking-system/network/members
-[stars-shield]: https://img.shields.io/github/stars/ibrahim/parking-system.svg?style=for-the-badge
-[stars-url]: https://github.com/ibrahim/parking-system/stargazers
-[issues-shield]: https://img.shields.io/github/issues/ibrahim/parking-system.svg?style=for-the-badge
-[issues-url]: https://github.com/ibrahim/parking-system/issues
-
 [screenshot-entry]: ARAC%20GIRISI.png
 [screenshot-exit]: CIKIS.png
 
 [Flask-shield]: https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white
-[Flask-url]: https://flask.palletsprojects.com/
 [Python-shield]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white
-[Python-url]: https://www.python.org/
 [Tailwind-shield]: https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white
-[Tailwind-url]: https://tailwindcss.com/
 [YOLO-shield]: https://img.shields.io/badge/YOLOv8-00FFFF?style=for-the-badge&logo=yolo&logoColor=black
-[YOLO-url]: https://ultralytics.com/
 [OpenCV-shield]: https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white
-[OpenCV-url]: https://opencv.org/
 [JS-shield]: https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black
